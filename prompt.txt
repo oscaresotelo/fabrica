@@ -1,0 +1,30 @@
+necesito lo siguiente 
+total dias habiles por mes
+total dias trabajados habiles
+joaquin tiene un sueldo de 580000 trabajando 6 horas todos
+los dias habiles, despues son horas extras, calcular horas
+totales trabajadas en el periodo
+se suma un bono objetivo del 10 pr ciento de sueldo y un bono de presentismo de 55000
+el horario de entrada es a las 8 am hasta 14 pm, con tolerancia hasta las 
+8 y 10 de entrada para conserverar el presentismo, no deben ser
+seguidas sino automaticamnte se descuenta bono del sueldo
+cristian cobra 630000 y el bono del 10 por ciento, trabaja en el mismo
+horario y condiciones de joaquin
+gabriel cobra 700000 mas el bono del 10 por ciento, y cumple el mismo
+que los anteriores
+pablo cobra 580000 , trabajanod tambine 6 horas, con un bono de 55000 de asistencia perfecta y un bono de 10 por ciento del sueldo fijo
+ en las misma condiciones que los anteriores
+gerardo cobra 1250000, el horario de gerardo es de 8 a 17 horas, tambien tiene el bono del 10 por ciento
+las condiciones de presentismo son iguales para todos.
+y el presentismo por asistencia perfecta para gerardo , cristian y gabriel es de 100000 pesos, si es que no faltaron en el periodo
+sino no se paga
+para calcular hasta el 30 del 9 toma como horario de salida en todos los casos el que corresponde como que marcaron en el horario
+correspondiente
+
+necesito los dias habiles del mes y los dias trabajados, tambien la cantidad de horas trabajadas, la hora extra se calcula
+diviendo el suedo en la cantidad de dias habiles y despues en la horas trabajadas para obtener el valor de la hora extra
+de lunes a vieres si hay un feriado se lo cuenta igual y dime que dia es feriado, necesito que sea similar a una 
+boleta de sueldo
+en todos los casos para pagar presentismo debe tener asistencia perfecta ellos trabajan dias habiles de lunes a viernes unicamente
+el 24 no se trabajo por feriado nacional, los dias habiles son de lunes a viernes
+las horas y dias trabajados son los siguientes

@@ -1,0 +1,85 @@
+Módulo de Órdenes de Envasado y Envasar
+1. ¿Para qué sirve este módulo?
+El módulo de Órdenes de Envasado permite gestionar, controlar y ejecutar el proceso de envasado de productos terminados, asegurando la trazabilidad y el correcto uso del stock de envases.
+
+2. Pantalla de Órdenes de Envasado Pendientes
+¿Qué muestra?
+Una tabla/listado de todas las órdenes de envasado que aún no han sido completadas.
+
+Cada orden contiene información clave: Cliente, Producto, Tipo de Envase, Cantidad a envasar, Presentación, Cajas completas acumuladas y Unidades pendientes para la próxima caja.
+
+¿Qué puedo hacer?
+Ver rápidamente qué productos están listos para ser envasados.
+
+Seleccionar una orden específica para proceder al envasado.
+
+3. Selección y Confirmación de Envasado
+Pasos a seguir:
+Seleccionar una orden
+Usa el menú desplegable para elegir la orden que deseas procesar.
+
+Verificar detalles
+Se mostrarán los datos clave de la orden: cliente, producto, envase, cantidad, fecha y lote.
+
+Revisar stock de envases
+
+El sistema muestra el stock disponible de envases para la combinación exacta de cliente, uso y línea.
+
+Si hay stock suficiente, podrás envasar la cantidad total.
+
+Si hay menos stock que lo solicitado, el sistema te permitirá envasar solo la cantidad disponible.
+
+Si no hay stock, verás un mensaje de advertencia y no podrás envasar hasta reponer.
+
+Confirmar envasado
+Haz clic en el botón para confirmar el envasado.
+El sistema:
+
+Descuenta los envases del stock.
+
+Marca la orden como “envasada”.
+
+Registra el movimiento para trazabilidad.
+
+4. Mensajes y Advertencias
+“Solo hay X envases disponibles para esta combinación. Puede envasar una cantidad menor.”
+Aparece cuando el stock es menor que la cantidad solicitada.
+
+“No hay stock de envases para esta combinación. No se puede envasar.”
+Aparece si no hay stock para la combinación exacta de cliente, uso y línea.
+
+“No hay stock de este envase para este cliente en ninguna combinación de uso/línea.”
+Aparece si no existe stock para ese envase en ninguna variante.
+Solución: registrar una nueva compra de envases.
+
+“Orden marcada como envasada, stock actualizado y trazabilidad registrada.”
+El proceso fue exitoso.
+
+5. Historial de Órdenes de Envasado Realizadas
+Consulta todas las órdenes ya envasadas: fecha, cliente, producto, envase, cantidad y lote.
+
+Útil para auditoría, reportes y control de producción.
+
+6. Recomendaciones de uso
+Verifica siempre el stock antes de confirmar un envasado.
+
+Si necesitas reponer, utiliza el módulo de compras de envases.
+
+Selecciona la combinación correcta de cliente, uso y línea tanto al comprar como al envasar.
+
+Consulta el historial para verificar la trazabilidad.
+
+7. Solución de problemas frecuentes
+No puedo envasar porque no hay stock:
+Revisa si la compra de envases se cargó para la misma combinación de cliente, uso y línea que la orden de envasado.
+
+El sistema me permite envasar menos de lo solicitado:
+El stock disponible es menor que la cantidad requerida. Puedes ajustar la cantidad a envasar.
+
+No aparecen órdenes pendientes:
+Todas las órdenes ya fueron procesadas o no se han generado nuevas.
+
+8. Contacto y soporte
+Ante cualquier duda, comunícate con el administrador del sistema o consulta la documentación interna.
+
+¿Quieres mostrar esta gu

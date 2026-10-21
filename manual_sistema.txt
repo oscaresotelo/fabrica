@@ -1,0 +1,217 @@
+# **Manual de Usuario – Sistema Minerva**
+
+---
+
+## **1. Acceso al Sistema**
+
+**Pantalla de Login:**
+- Ingresa tu **usuario** y **contraseña**.
+- Haz clic en **Iniciar sesión**.
+- Si los datos son correctos, verás el menú principal.
+
+**Ejemplo:**
+> Usuario: oscar  
+> Contraseña: ********
+
+---
+
+## **2. Menú Principal**
+
+Al ingresar, verás el menú lateral con las siguientes opciones:
+
+- **Dashboard**
+- **Proceso Elaboración**
+- **Compras**
+- **Gestionar Envasado**
+- **Stock Sin Envasar**
+- **Ventas**
+- **Reportes**
+- **Consulta de Lote**
+- **Administración**
+- **Guía de Usuario**
+- **Salir**
+
+---
+
+## **3. Compras**
+
+### **3.1. Registrar Compra de Materia Prima**
+
+1. Ve a **Compras Materia Prima**.
+2. Haz clic en **Nueva Compra**.
+3. Completa los campos:
+   - **Proveedor:** Ejemplo: "Químicos SA"
+   - **Materia Prima:** Ejemplo: "Lauril Sulfato de Sodio"
+   - **Fecha:** Ejemplo: "2025-07-15"
+   - **Cantidad:** Ejemplo: "100"
+   - **Precio Unitario:** Ejemplo: "1200"
+   - **Moneda:** ARS/USD
+   - **Cotización USD:** (si corresponde)
+   - **Número de comprobante:** Ejemplo: "FC-0001-12345"
+   - **Observaciones:** (opcional)
+4. Haz clic en **Guardar**.
+
+**Tips:**
+- Si la compra es en dólares, asegúrate de actualizar la cotización antes.
+- Puedes consultar el historial y descargarlo en CSV.
+
+---
+
+### **3.2. Registrar Compra de Envases**
+
+1. Ve a **Compra Envases**.
+2. Haz clic en **Nueva Compra**.
+3. Completa los campos:
+   - **Proveedor:** Ejemplo: "Envaplast SRL"
+   - **Envase:** Ejemplo: "Bidón 5L"
+   - **Fecha, cantidad, precio unitario, comprobante**.
+4. Haz clic en **Guardar**.
+
+---
+
+## **4. Stock**
+
+### **4.1. Stock de Materias Primas**
+
+- Ve a **Stock**.
+- Consulta el listado de **materias primas** y sus cantidades actuales.
+- Los ítems en **rojo** indican stock bajo.
+- Haz clic en **Ver Stock Bajo** para ver detalles y descargar el listado.
+
+**Tips:**
+- El sistema descuenta automáticamente el stock al producir o envasar.
+
+---
+
+### **4.2. Stock de Envases**
+
+- Ve a **Stock** y selecciona la pestaña de envases.
+- Consulta el stock por **tipo de envase** y **cliente**.
+- Puedes filtrar por cliente o tipo de envase.
+
+---
+
+## **5. Pedidos y Producción**
+
+### **5.1. Crear Pedido de Producción**
+
+1. Ve a **Pedidos**.
+2. Haz clic en **Nuevo Pedido**.
+3. Completa:
+   - **Cliente:** Ejemplo: "Farmacia Central"
+   - **Receta:** Ejemplo: "Shampoo Anticaspa"
+   - **Cantidad:** Ejemplo: "1000 L"
+   - **Fecha estimada**
+4. Haz clic en **Guardar**.
+
+---
+
+### **5.2. Gestión de Producción y Lotes**
+
+1. Ve a **Producciones**.
+2. Selecciona el **pedido a producir**.
+3. El sistema genera un **número de lote único** para la producción.
+4. Confirma la producción:
+   - El sistema verifica el stock de materias primas.
+   - Si hay stock suficiente, descuenta los insumos y marca la producción como **producido**.
+   - El lote queda registrado en la tabla de **lotes** para trazabilidad.
+5. Descarga la receta en PDF y el rótulo del lote si lo necesitas.
+
+**Estados:**
+- **Pendiente:** No iniciada.
+- **En proceso:** En elaboración.
+- **Producido:** Lista para envasar.
+
+---
+
+## **6. Envasado**
+
+### **6.1. Crear Orden de Envasado**
+
+1. Ve a **Órdenes de Envasado**.
+2. Haz clic en **Nueva Orden**.
+3. Selecciona:
+   - **Lote producido**
+   - **Producto**
+   - **Envase:** Ejemplo: "Frasco 500ml"
+   - **Cantidad de unidades**
+4. Haz clic en **Guardar**.
+
+**Tips:**
+- El sistema descuenta automáticamente el stock de envases y actualiza el stock de productos envasados.
+
+---
+
+### **6.2. Envasar**
+
+- Ve a **Envasar** para registrar el proceso de envasado y finalizar órdenes.
+
+---
+
+## **7. Ventas**
+
+1. Ve a **Ventas**.
+2. Haz clic en **Nueva Venta**.
+3. Completa:
+   - **Cliente**
+   - **Producto envasado**
+   - **Cantidad**
+   - **Fecha**
+4. Haz clic en **Guardar**.
+
+**Tips:**
+- El stock de productos envasados se descuenta automáticamente.
+
+---
+
+## **8. Costos y Cotización de Dólar**
+
+- Ve a **Cotización Dólar** en el dashboard.
+- Haz clic en **Actualizar Cotización BNA** para obtener el valor oficial.
+- El sistema guarda el historial de cambios.
+- Si compras en USD, asegúrate de tener la cotización actualizada antes de registrar la compra.
+
+---
+
+## **9. Reportes y Descargas**
+
+- Ve a **Reportes**.
+- Elige el tipo de reporte: **stock, compras, ventas, producción, envasado, costos, cotización dólar**.
+- **Utiliza los filtros avanzados** (por fechas, cliente, proveedor, producto, etc.) para personalizar la consulta.
+- Visualiza los **gráficos de barras, tortas o líneas** para analizar tendencias.
+- Haz clic en **Descargar CSV** para exportar los datos.
+
+---
+
+## **10. Consulta de Lote (Trazabilidad)**
+
+- Ve a **Consulta de Lote**.
+- Ingresa el número de lote (ejemplo: **Lote-20250715-01**).
+- El sistema muestra toda la información relacionada:
+    - **Datos del lote y producción**
+    - **Materias primas usadas**
+    - **Movimientos de insumos**
+    - **Envasado y movimientos de envases**
+    - **Productos envasados**
+    - **Ventas relacionadas**
+- Si el lote no existe, el sistema te sugiere ejemplos de lotes válidos.
+
+---
+
+## **11. Consejos y Buenas Prácticas**
+
+- **Verifica los datos antes de guardar.**
+- **Usa los filtros** para encontrar información rápidamente.
+- **Mantén actualizados** los datos de clientes, proveedores y productos.
+- Consulta la **guía de usuario** ante cualquier duda.
+
+---
+
+## **12. Soporte**
+
+- Para problemas técnicos, contacta a sistemas: **sistemas@minerva.com.ar**
+- Para dudas operativas, consulta a tu supervisor.
+
+---
+
+**¡Gracias por usar Minerva!**

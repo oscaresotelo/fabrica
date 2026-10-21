@@ -1,0 +1,91 @@
+Manual de Usuario: Proceso de Elaboración
+Introducción
+Bienvenido al módulo Proceso de Elaboración de Minerva.
+Aquí podrás gestionar y controlar todas las etapas de la producción, desde la carga de pedidos hasta la finalización de cada lote.
+
+Menú Principal
+Guía de Usuario:
+Acceso a este manual y recomendaciones de uso.
+
+Producciones:
+Visualiza, crea y gestiona los lotes de producción.
+
+Ver el estado de cada producción (pendiente, en proceso, producido).
+
+Consultar detalles de cada lote (fecha, cliente, receta, cantidad, estado).
+
+Iniciar o finalizar una producción.
+
+Pedidos:
+Gestiona los pedidos de producción de los clientes.
+
+Crear un nuevo pedido de producción.
+
+Ver historial y estado de pedidos.
+
+Asociar pedidos a lotes de producción.
+
+Salir:
+Cierra la sesión actual.
+
+¿Cómo crear un nuevo pedido de producción?
+Ingresa al menú Pedidos.
+
+Haz clic en Nuevo Pedido.
+
+Completa los datos requeridos:
+
+Cliente
+
+Receta o producto a producir
+
+Cantidad solicitada
+
+Fecha estimada
+
+Guarda el pedido.
+El pedido aparecerá en la lista con estado "pendiente".
+
+¿Cómo iniciar una nueva producción?
+Ve al menú Producciones.
+
+Haz clic en Nueva Producción.
+
+Selecciona el pedido asociado.
+
+Ingresa los datos del lote (fecha, cantidad, etc.).
+
+Inicia la producción.
+El estado cambiará a "en proceso".
+
+¿Cómo finalizar una producción?
+En el listado de Producciones, selecciona el lote "en proceso".
+
+Haz clic en Finalizar Producción.
+
+Verifica los datos y confirma.
+
+El estado pasará a "producido" y el lote estará listo para envasar.
+
+Estados de Producción
+Pendiente:
+La producción aún no ha comenzado.
+
+En Proceso:
+El lote está siendo elaborado.
+
+Producido:
+El lote está listo para el siguiente paso (envasado).
+
+Anulado:
+El pedido o producción fue cancelado.
+
+Consejos de uso
+Verifica siempre los datos antes de guardar.
+
+Utiliza los filtros para buscar producciones o pedidos por cliente, fecha o estado.
+
+Para cualquier duda, consulta esta guía o contacta al administrador.
+
+Contacto y soporte
+Si tienes problemas o consultas, comunícate con el área de sistemas o con tu supervisor.

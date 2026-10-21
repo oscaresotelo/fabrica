@@ -1,0 +1,60 @@
+# Manual de Usuario: Compras
+
+## Introducción
+
+En este módulo puedes gestionar todas las compras de materias primas y envases para Minerva.
+
+## Menú Principal
+
+- **Guía de Usuario:**  
+  Acceso a este manual y recomendaciones de uso.
+
+- **Compras Materia Prima:**  
+  Carga y consulta las compras de materias primas:
+  - Registrar una nueva compra.
+  - Ver historial de compras.
+  - Consultar precios, cantidades y proveedores.
+
+- **Compra Envases:**  
+  Carga y consulta las compras de envases:
+  - Registrar una nueva compra de envases.
+  - Ver historial de ingresos de envases.
+  - Consultar proveedores y cantidades.
+
+- **Salir:**  
+  Cierra la sesión actual.
+
+## ¿Cómo registrar una compra de materia prima?
+
+1. Ingresa a **Compras Materia Prima**.
+2. Haz clic en **Nueva Compra**.
+3. Completa los datos requeridos:
+   - Proveedor
+   - Materia prima
+   - Fecha, cantidad, precio unitario
+   - Número de comprobante
+   - Observaciones (opcional)
+4. Guarda la compra.
+
+## ¿Cómo registrar una compra de envases?
+
+1. Ingresa a **Compra Envases**.
+2. Haz clic en **Nueva Compra**.
+3. Completa los datos requeridos:
+   - Proveedor
+   - Envase
+   - Fecha, cantidad, precio unitario
+   - Número de comprobante
+4. Guarda la compra.
+
+## Consejos de uso
+
+- Verifica siempre los datos antes de guardar.
+- Utiliza los filtros para buscar compras por proveedor, fecha o producto.
+- Para dudas, consulta esta guía o contacta al administrador.
+
+## Contacto y soporte
+
+Si tienes problemas o consultas, comunícate con el área de sistemas o con tu supervisor.
+
+**¡Gracias por usar Minerva!**

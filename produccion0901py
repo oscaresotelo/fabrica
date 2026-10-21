@@ -1,0 +1,512 @@
+import streamlit as st
+import sqlite3
+from datetime import datetime, date
+from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import uuid
+import pandas as pd
+
+DB_PATH = "minerva.db"
+
+def gestionar_produccion():
+    # --- Estilos ---
+    st.markdown("""
+    <style>
+        .metric-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .stButton>button {
+            background-color: #0072C6;
+            color: white;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin-top: 10px;
+        }
+        .stButton>button:hover {
+            background-color: #005a9e;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("# 🏭 Gestión de Producción")
+    st.markdown("---")
+
+    def generar_numero_lote():
+        return f"Lote-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+
+    def obtener_pedidos():
+        with sqlite3.connect(DB_PATH) as conn:
+            return conn.execute('''
+                SELECT pp.id, c.nombre, r.nombre, pp.cantidad, pp.numero_pedido, pp.fecha, pp.estado, pp.receta_id, pp.lote, pp.cliente_id
+                FROM pedidos_produccion pp
+                JOIN clientes c ON pp.cliente_id = c.id
+                JOIN recetas r ON pp.receta_id = r.id
+                WHERE pp.estado IN ('pendiente', 'en_proceso')
+                ORDER BY pp.fecha
+            ''').fetchall()
+
+    def obtener_ingredientes(receta_id):
+        with sqlite3.connect(DB_PATH) as conn:
+            return conn.execute('''
+                SELECT mp.id, mp.nombre, ri.cantidad, ri.unidad, ri.materia_prima_id
+                FROM receta_ingredientes ri
+                JOIN materias_primas mp ON ri.materia_prima_id = mp.id
+                WHERE ri.receta_id = ?
+            ''', (receta_id,)).fetchall()
+
+    def obtener_ingredientes_modificados_db(pedido_id):
+        with sqlite3.connect(DB_PATH) as conn:
+            return conn.execute('''
+                SELECT mp.id, mp.nombre, rm.cantidad, rm.unidad, rm.materia_prima_id
+                FROM receta_modificada rm
+                JOIN materias_primas mp ON rm.materia_prima_id = mp.id
+                WHERE rm.pedido_id = ?
+            ''', (pedido_id,)).fetchall()
+
+    def obtener_stock():
+        with sqlite3.connect(DB_PATH) as conn:
+            rows = conn.execute("SELECT materia_prima_id, cantidad_actual FROM stock_materias_primas").fetchall()
+            return {r[0]: {"stock": float(r[1]) if r[1] is not None else 0.0} for r in rows}
+
+    def obtener_materias_primas():
+        with sqlite3.connect(DB_PATH) as conn:
+            return conn.execute("SELECT id, nombre, unidad FROM materias_primas").fetchall()
+    
+    def obtener_composicion_colorante(conn, colorante_combinado_id):
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT colorante_primario_id, proporcion
+            FROM composicion_colorantes
+            WHERE colorante_combinado_id = ?
+        """, (colorante_combinado_id,))
+        return cur.fetchall()
+
+    def convertir_a_litros(cantidad, unidad):
+        if unidad is None:
+            unidad = ""
+        u = unidad.strip().upper()
+        try:
+            c = float(cantidad)
+        except Exception:
+            c = 0.0
+
+        if u in ["L", "LITRO", "LITROS", "LTR", "LTS"]:
+            return c
+        if u in ["ML", "CM3", "CC"]:
+            return c / 1000.0
+        if u in ["G", "GR", "GRS"]:
+            return c / 1000.0
+        if u in ["KG", "KILO", "KILOS", "KILOGRAMO", "KILOGRAMOS"]:
+            return c
+        if "ML" in u:
+            return c / 1000.0
+        if "G" in u and "KG" not in u:
+            return c / 1000.0
+        if "KG" in u:
+            return c
+        if "L" in u:
+            return c
+        return c
+
+    def calcular_batch_base(receta_id):
+        filas = obtener_ingredientes(receta_id)
+        total = 0.0
+        for _mpid, _nombre, cantidad, unidad, _mp in filas:
+            total += convertir_a_litros(cantidad, unidad)
+        return total if total > 0 else 1.0
+
+    def descontar_stock(conn, ingredientes, cantidad_a_producir, cur, receta_id=None):
+        ingredientes_escala = {}
+        faltantes = []
+        stock = obtener_stock()
+
+        if receta_id is not None:
+            batch_base = calcular_batch_base(receta_id)
+        else:
+            batch_base = 200.0
+
+        for ingr_id, ingr_nombre, cantidad_base, unidad, materia_prima_id in ingredientes:
+            factor = float(cantidad_a_producir) / float(batch_base)
+            cantidad_escalada = float(cantidad_base) * factor
+            ingredientes_escala[materia_prima_id] = ingredientes_escala.get(materia_prima_id, 0.0) + cantidad_escalada
+
+        for materia_prima_id, cantidad_escalada in ingredientes_escala.items():
+            cur.execute("SELECT 1 FROM composicion_colorantes WHERE colorante_combinado_id = ?", (materia_prima_id,))
+            es_colorante_combinado = cur.fetchone() is not None
+
+            if es_colorante_combinado:
+                composicion = obtener_composicion_colorante(conn, materia_prima_id)
+                if not composicion:
+                    st.warning(f"No se encontró la composición del colorante combinado con ID: {materia_prima_id}.")
+                    continue
+                for componente_id, proporcion in composicion:
+                    cantidad_componente = cantidad_escalada * float(proporcion)
+                    stock_componente = stock.get(componente_id, {"stock": 0.0})["stock"]
+                    if stock_componente < cantidad_componente - 1e-9:
+                        cur.execute("SELECT nombre FROM materias_primas WHERE id = ?", (componente_id,))
+                        row = cur.fetchone()
+                        nombre = row[0] if row else f"ID {componente_id}"
+                        faltantes.append((nombre, cantidad_componente, stock_componente))
+                    else:
+                        nuevo_stock = max(stock_componente - cantidad_componente, 0.0)
+                        cur.execute("UPDATE stock_materias_primas SET cantidad_actual = ? WHERE materia_prima_id = ?", (nuevo_stock, componente_id))
+            else:
+                stock_actual = stock.get(materia_prima_id, {"stock": 0.0})["stock"]
+                if stock_actual < cantidad_escalada - 1e-9:
+                    cur.execute("SELECT nombre FROM materias_primas WHERE id = ?", (materia_prima_id,))
+                    row = cur.fetchone()
+                    nombre = row[0] if row else f"ID {materia_prima_id}"
+                    faltantes.append((nombre, cantidad_escalada, stock_actual))
+                else:
+                    nuevo_stock = max(stock_actual - cantidad_escalada, 0.0)
+                    cur.execute("UPDATE stock_materias_primas SET cantidad_actual = ? WHERE materia_prima_id = ?", (nuevo_stock, materia_prima_id))
+
+        return faltantes if faltantes else None
+
+    def generar_pdf_receta(cliente, receta, cantidad, numero_pedido, fecha_pedido, lote, ingredientes):
+        buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=letter)
+        width, height = letter
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(50, height - 50, f"Receta de Producción - {receta}")
+        c.setFont("Helvetica", 12)
+        y = height - 80
+        for txt in [f"Cliente: {cliente}", f"Pedido: {numero_pedido}", f"Fecha pedido: {fecha_pedido}", f"Cantidad: {cantidad} litros", f"Lote: {lote or 'No asignado'}"]:
+            c.drawString(50, y, txt)
+            y -= 18
+        c.drawString(50, y, "Ingredientes:")
+        y -= 20
+        for nombre, cant, unidad in ingredients_normalize_for_pdf(ingredientes):
+            if y < 50:
+                c.showPage()
+                y = height - 50
+            c.drawString(70, y, f"- {nombre}: {cant:.3f} {unidad}")
+            y -= 18
+        c.drawString(50, y - 30, "Firma supervisor: _______________________")
+        c.showPage()
+        c.save()
+        buf.seek(0)
+        return buf
+
+    def ingredients_normalize_for_pdf(ingredientes):
+        out = []
+        for nombre, cant, unidad in ingredientes:
+            u = (unidad or "").strip().lower()
+            if u in ["l", "litros", "litro"] and abs(cant) < 1:
+                out.append((nombre, cant * 1000.0, "cm³"))
+            elif u in ["kg", "kilos", "kilo"] and abs(cant) < 1:
+                out.append((nombre, cant * 1000.0, "g"))
+            else:
+                out.append((nombre, cant, unidad))
+        return out
+
+    def imprimir_rotulo(cliente, receta, lote, fecha_prod):
+        buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=letter)
+        height = letter[1]
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(50, height - 100, f"Producto: {receta}")
+        c.drawString(50, height - 130, f"Número de Lote: {lote}")
+        c.drawString(50, height - 160, f"Fecha producida: {fecha_prod}") 
+        c.drawString(50, height - 190, f"Cliente: {cliente}")
+        c.showPage()
+        c.save()
+        buf.seek(0)
+        return buf
+
+    # --- Interfaz ---
+    def handle_multiselect_change():
+        st.session_state.current_selections = st.session_state.multiselect_key
+
+    if 'current_selections' not in st.session_state:
+        st.session_state.current_selections = []
+
+    pedidos = obtener_pedidos()
+    if not pedidos:
+        st.info("ℹ️ No hay pedidos pendientes ni en proceso.")
+        return
+
+    pedido_labels = [f"{p[1]} - {p[2]} - {p[4]} - Estado: {p[6].capitalize()}" for p in pedidos]
+
+    st.multiselect("Seleccionar pedido",
+                   pedido_labels,
+                   default=st.session_state.current_selections,
+                   key="multiselect_key",
+                   on_change=handle_multiselect_change)
+
+    pedidos_seleccionados = [pedidos[pedido_labels.index(s)] for s in st.session_state.current_selections if s in pedido_labels]
+
+    for i, pedido in enumerate(pedidos_seleccionados):
+        try:
+            pedido_id, cliente, receta, cantidad, numero_pedido, fecha, estado, receta_id, lote, cliente_id = pedido
+            pedido_label = pedido_labels[pedido_labels.index(st.session_state.current_selections[i])]
+
+            with st.expander(f"Detalles del pedido: {numero_pedido}"):
+                batch_base = calcular_batch_base(receta_id)
+                materias_primas = obtener_materias_primas()
+                materias_primas_dict = {mp[0]: mp[1] for mp in materias_primas}
+                materias_primas_labels = {mp[0]: f"{mp[1]} ({mp[2]})" for mp in materias_primas}
+
+                col1, col2 = st.columns([1, 4])
+
+                with col1:
+                    st.markdown("### 🧾 Información del Pedido")
+                    st.write(f"**Cliente:** {cliente}")
+                    st.write(f"**Receta:** {receta}")
+                    st.write(f"**Cantidad:** {cantidad} litros")
+                    st.write(f"**N° Pedido:** {numero_pedido}")
+                    st.write(f"**Fecha:** {fecha}")
+                    st.write(f"**Estado:** `{estado}`")
+                    if lote:
+                        st.write(f"**Lote asignado:** `{lote}`")
+
+                with col2:
+                    # Formulario de edición (muestra cantidades actuales: modificadas o escaladas)
+                    ingredientes_raw_form = obtener_ingredientes_modificados_db(pedido_id) or obtener_ingredientes(receta_id)
+
+                    # Si no hay modificaciones, escalar para mostrar en el formulario
+                    if not obtener_ingredientes_modificados_db(pedido_id):
+                        factor_form = float(cantidad) / float(batch_base)
+                        # Una vez calculado, estos valores deben quedar "estáticos" en el widget
+                        ingredientes_para_form = [
+                            (i[0], i[1], round(float(i[2]) * factor_form, 4), i[3], i[4])
+                            for i in ingredientes_raw_form
+                        ]
+                    else:
+                        ingredientes_para_form = ingredientes_raw_form
+
+                    with st.form(key=f"form_ingredientes_{pedido_id}"):
+                        st.markdown("#### ✏️ Editar Ingredientes")
+                        modificaciones = {}
+                        for j, (ingr_id, ingr_nombre, cantidad_base, unidad, materia_prima_id) in enumerate(ingredientes_para_form):
+                            col_ingr1, col_ingr2, col_ingr3 = st.columns(3)
+                            with col_ingr1:
+                                nueva_materia_prima_id = st.selectbox(
+                                    f"MP - {ingr_nombre} ({unidad})",
+                                    options=list(materias_primas_labels.keys()),
+                                    format_func=lambda x: materias_primas_labels[x],
+                                    index=list(materias_primas_labels.keys()).index(materia_prima_id) if materia_prima_id in materias_primas_labels else 0,
+                                    key=f"materia_prima_{pedido_id}_{ingr_id}_{j}"
+                                )
+                            with col_ingr2:
+                                nueva_cantidad = st.number_input(
+                                    "Cantidad",
+                                    value=float(cantidad_base),
+                                    format="%.3f",
+                                    key=f"cantidad_{pedido_id}_{ingr_id}_{j}"
+                                )
+                            with col_ingr3:
+                                nueva_unidad = st.text_input(
+                                    "Unidad",
+                                    value=unidad,
+                                    key=f"unidad_{pedido_id}_{ingr_id}_{j}"
+                                )
+
+                            modificaciones[ingr_id] = {
+                                'materia_prima_id': nueva_materia_prima_id,
+                                'cantidad': nueva_cantidad,
+                                'unidad': nueva_unidad
+                            }
+
+                        if st.form_submit_button("Guardar cambios en ingredientes"):
+                            with sqlite3.connect(DB_PATH) as conn:
+                                cur = conn.cursor()
+                                try:
+                                    conn.execute("BEGIN")
+                                    cur.execute("DELETE FROM receta_modificada WHERE pedido_id = ?", (pedido_id,))
+                                    for ingr_id, mod in modificaciones.items():
+                                        cur.execute("""
+                                            INSERT INTO receta_modificada (pedido_id, receta_id, materia_prima_id, cantidad, unidad)
+                                            VALUES (?, ?, ?, ?, ?)
+                                        """, (pedido_id, receta_id, mod['materia_prima_id'], mod['cantidad'], mod['unidad']))
+                                    conn.commit()
+                                    st.success("✅ Cambios en ingredientes guardados en la base de datos.")
+                                    st.rerun()
+                                except sqlite3.Error as e:
+                                    conn.rollback()
+                                    st.error(f"Ocurrió un error al guardar los cambios: {e}")
+
+                    # === TABLA FINAL Y PDF: siempre los valores reales a usar en producción ===
+                    st.markdown("### 🧪 Ingredientes Escalados")
+
+                    ingredientes_modificados = obtener_ingredientes_modificados_db(pedido_id)
+
+                    if ingredientes_modificados:
+                        # Usa directamente las cantidades modificadas (ya son las finales)
+                        ingredientes_finales = [
+                            (materias_primas_dict.get(i[4], i[1]), float(i[2]), i[3])
+                            for i in ingredientes_modificados
+                        ]
+                    else:
+                        # Escala desde receta original
+                        ingredientes_original = obtener_ingredientes(receta_id)
+                        factor = float(cantidad) / float(batch_base)
+                        ingredientes_finales = [
+                            (materias_primas_dict.get(i[4], i[1]), float(i[2]) * factor, i[3])
+                            for i in ingredientes_original
+                        ]
+
+                    df = pd.DataFrame(ingredientes_finales, columns=["Ingrediente", "Cantidad", "Unidad"])
+                    st.dataframe(df.style.format({"Cantidad": "{:.3f}"}), use_container_width=True)
+
+                # Botones de descarga usando exactamente los mismos datos
+                colA, colB = st.columns(2)
+                with colA:
+                    st.download_button(
+                        label=f"📄 Descargar receta PDF - {numero_pedido}",
+                        data=generar_pdf_receta(cliente, receta, cantidad, numero_pedido, fecha, lote, ingredientes_finales),
+                        file_name=f"receta_{numero_pedido}_{lote or 'sin_lote'}.pdf",
+                        mime="application/pdf"
+                    )
+                with colB:
+                    if lote:
+                        st.download_button(
+                            label=f"🏷️ Imprimir rótulo - {numero_pedido}",
+                            data=imprimir_rotulo(cliente, receta, lote, fecha),
+                            file_name=f"rotulo_{numero_pedido}_{lote}.pdf",
+                            mime="application/pdf"
+                        )
+
+                st.markdown("---")
+
+                # Opciones según estado (sin cambios)
+                if estado == "pendiente":
+                    st.subheader("⚙️ Opciones para estado Pendiente")
+                    opcion = st.selectbox(f"Operación para {numero_pedido}:", ["Simular sin descontar stock", "Simular descontando y mostrar faltantes", "Confirmar producción"], key=f"opcion_{pedido_id}")
+                    
+                    if st.button(f"Ejecutar operación para {numero_pedido}", key=f"button_{pedido_id}"):
+                        ingredientes_sim = obtener_ingredientes_modificados_db(pedido_id) or obtener_ingredientes(receta_id)
+                        with sqlite3.connect(DB_PATH) as conn:
+                            cur = conn.cursor()
+                            if opcion.startswith("Simular"):
+                                faltantes = descontar_stock(conn, ingredientes_sim, cantidad, cur, receta_id=receta_id)
+                                if faltantes:
+                                    st.warning("⚠️ Ingredientes faltantes:")
+                                    for nombre, req, disp in faltantes:
+                                        st.write(f"- {nombre}: requiere {req:.3f}, disponible {disp:.3f}")
+                                    conn.rollback()
+                                else:
+                                    st.success("✅ Suficiente stock disponible.")
+                            elif opcion == "Confirmar producción":
+                                lote_nuevo = generar_numero_lote()
+                                try:
+                                    conn.execute("BEGIN")
+                                    conn.execute("INSERT OR IGNORE INTO lotes (numero, fecha, cliente_id, receta_id) VALUES (?, ?, ?, ?)",
+                                                 (lote_nuevo, datetime.now().strftime("%Y-%m-%d"), cliente_id, receta_id))
+                                    conn.execute("UPDATE pedidos_produccion SET estado = 'en_proceso', lote = ? WHERE id = ?", (lote_nuevo, pedido_id))
+                                    conn.commit()
+                                    st.success(f"✅ Pedido en proceso. Lote: {lote_nuevo}")
+                                    if pedido_label in st.session_state.current_selections:
+                                        st.session_state.current_selections.remove(pedido_label)
+                                    st.rerun()
+                                except Exception as e:
+                                    conn.rollback()
+                                    st.error(f"Error: {e}")
+
+                elif estado == "en_proceso":
+                    st.subheader("⚙️ Opciones para estado En Proceso")
+                    fecha_produccion = st.date_input("🗓️ Fecha de producción", value=date.today(), key=f"fecha_prod_{pedido_id}")
+                    cantidad_real = st.number_input("Cantidad real producida (litros)", min_value=0.0, value=float(cantidad), key=f"cant_real_{pedido_id}")
+                    opcion = st.selectbox("Operación:", ["Simular descontando stock y mostrar faltantes", "Producir descontando stock"], key=f"opcion_proc_{pedido_id}")
+                    if st.button("Ejecutar operación", key=f"btn_proc_{pedido_id}"):
+                        ingredientes_finales = obtener_ingredientes_modificados_db(pedido_id) or obtener_ingredientes(receta_id)
+                        with sqlite3.connect(DB_PATH) as conn:
+                            cur = conn.cursor()
+                            try:
+                                conn.execute("BEGIN")
+                                if opcion == "Simular descontando stock y mostrar faltantes":
+                                    faltantes = descontar_stock(conn, ingredientes_finales, cantidad, cur, receta_id=receta_id)
+                                    if faltantes:
+                                        st.warning("⚠️ Ingredientes faltantes:")
+                                        for n, r, d in faltantes:
+                                            st.write(f"- {n}: requiere {r:.3f}, disponible {d:.3f}")
+                                    else:
+                                        st.success("✅ Suficiente stock disponible.")
+                                    conn.rollback()
+                                elif opcion == "Producir descontando stock":
+                                    # 1. DEFINICIÓN: Obtener ingredientes (modificados o base) antes de usar la variable
+                                    ingredientes_modificados = obtener_ingredientes_modificados_db(pedido_id)
+                                    
+                                    if ingredientes_modificados:
+                                        # Si hay modificaciones, estas ya tienen las cantidades finales
+                                        ingredientes_a_descontar = ingredientes_modificados
+                                        cantidad_a_usar = cantidad_real
+                                        batch_base_uso = None # No se usa factor de escala si ya está modificado
+                                    else:
+                                        # Si no hay modificaciones, usamos la receta original
+                                        ingredientes_a_descontar = obtener_ingredientes(receta_id)
+                                        cantidad_a_usar = cantidad_real
+                                        batch_base_uso = batch_base
+
+                                    # 2. VALIDACIÓN DE STOCK
+                                    with sqlite3.connect(DB_PATH) as conn:
+                                        cur = conn.cursor()
+                                        try:
+                                            conn.execute("BEGIN")
+                                            
+                                            # Llamada a la función con las variables ya definidas
+                                            faltantes = descontar_stock(conn, ingredientes_a_descontar, cantidad_a_usar, cur, receta_id=receta_id if not ingredientes_modificados else None)
+                                            
+                                            if faltantes:
+                                                st.warning("⚠️ No hay suficiente stock.")
+                                                for n, r, d in faltantes:
+                                                    st.write(f"- {n}: requiere {r:.3f}, disponible {d:.3f}")
+                                                conn.rollback()
+                                                st.stop()
+
+                                            # 3. CÁLCULO DE CANTIDADES PARA MOVIMIENTOS
+                                            ingr_dict = {}
+                                            # El factor es 1.0 si es receta modificada, o (real / base) si es la original
+                                            factor_real = 1.0 if ingredientes_modificados else float(cantidad_real) / float(batch_base)
+                                            
+                                            for _, _, cant_base, _, mp_id in ingredientes_a_descontar:
+                                                cant_esc = float(cant_base) * factor_real
+                                                
+                                                # Manejo de colorantes combinados
+                                                cur.execute("SELECT 1 FROM composicion_colorantes WHERE colorante_combinado_id = ?", (mp_id,))
+                                                if cur.fetchone():
+                                                    comp = obtener_composicion_colorante(conn, mp_id)
+                                                    for comp_id, prop in comp:
+                                                        ingr_dict[comp_id] = ingr_dict.get(comp_id, 0) + (cant_esc * float(prop))
+                                                else:
+                                                    ingr_dict[mp_id] = ingr_dict.get(mp_id, 0) + cant_esc
+
+                                            # 4. REGISTRO DE MOVIMIENTOS (Con los CHECK constraints corregidos)
+                                            fecha_sql = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                            for mp_id, cant in ingr_dict.items():
+                                                cur.execute("""
+                                                    INSERT INTO movimientos_materia_prima (materia_prima_id, fecha, cantidad, tipo_movimiento, lote, destino)
+                                                    VALUES (?, ?, ?, ?, ?, ?)
+                                                """, (mp_id, fecha_sql, -abs(cant), 'egreso', lote, 'produccion'))
+
+                                            # 5. FINALIZAR PEDIDO Y LOTE
+                                            cur.execute("UPDATE pedidos_produccion SET estado = 'completado' WHERE id = ?", (pedido_id,))
+                                            cur.execute("DELETE FROM receta_modificada WHERE pedido_id = ?", (pedido_id,))
+                                            
+                                            # Registrar en tabla producciones (relacionando con el lote)
+                                            cur.execute("""
+                                                INSERT INTO producciones (lote_id, fecha, cantidad_producida)
+                                                SELECT id, ?, ? FROM lotes WHERE numero = ?
+                                            """, (fecha_produccion.strftime("%Y-%m-%d"), cantidad_real, lote))
+
+                                            conn.commit()
+                                            st.success(f"✅ Producción completada con éxito.")
+                                            
+                                            if pedido_label in st.session_state.current_selections:
+                                                st.session_state.current_selections.remove(pedido_label)
+                                            st.rerun()
+
+                                        except Exception as e:
+                                            conn.rollback()
+                                            st.error(f"Error durante la producción: {e}")
+        except Exception as e:
+            st.warning(f"Error al cargar pedido: {e}")
+
+# Ejecutar
+gestionar_produccion()
