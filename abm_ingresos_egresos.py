@@ -148,23 +148,24 @@ def mostrar_listado_y_edicion(categorias_df):
         updated = 0
         changes = st.session_state.categorias_data_editor.get("edited_rows")
 
-        for index, row_data in changes.items():
-            original_row = categorias_df.iloc[index].to_dict()
-            categoria_id = original_row['id']
-            
-            new_nombre = row_data.get('nombre', original_row['nombre'])
-            new_tipo = row_data.get('tipo', original_row['tipo'])
+        if changes:
+            for index, row_data in changes.items():
+                original_row = categorias_df.iloc[index].to_dict()
+                categoria_id = original_row['id']
+                
+                new_nombre = row_data.get('nombre', original_row['nombre'])
+                new_tipo = row_data.get('tipo', original_row['tipo'])
 
-            if new_nombre != original_row['nombre'] or new_tipo != original_row['tipo']:
-                success, message = update_categoria(categoria_id, new_nombre, new_tipo)
-                if success:
-                    updated += 1
-                else:
-                    st.error(f"Error al actualizar la categoría ID {categoria_id}: {message}")
-        
-        if updated > 0:
-            st.success(f"✅ {updated} categorías actualizadas con éxito.")
-            st.rerun()
+                if new_nombre != original_row['nombre'] or new_tipo != original_row['tipo']:
+                    success, message = update_categoria(categoria_id, new_nombre, new_tipo)
+                    if success:
+                        updated += 1
+                    else:
+                        st.error(f"Error al actualizar la categoría ID {categoria_id}: {message}")
+            
+            if updated > 0:
+                st.success(f"✅ {updated} categorías actualizadas con éxito.")
+                st.rerun()
 
     st.markdown("---")
 
@@ -193,11 +194,11 @@ def mostrar_listado_y_edicion(categorias_df):
                 st.error(f"❌ {message}")
 
 # =================================================================================================
-# FUNCIÓN PRINCIPAL REUTILIZABLE
+# FUNCIÓN PRINCIPAL REUTILIZABLE (Coincide con el nombre del archivo)
 # =================================================================================================
 
-def abm_categorias():
-    """Función que puede ser llamada desde otro módulo o página Streamlit."""
+def abm_ingresos_egresos():
+    """Función principal que es llamada desde app.py o módulos principales."""
     st.title("Administración de Categorías de Imputación (ABM)")
     st.markdown("Las categorías se utilizan para clasificar el flujo de **INGRESO** y **EGRESO** de fondos.")
     st.markdown("---")
@@ -218,4 +219,4 @@ def abm_categorias():
 
 if __name__ == "__main__":
     st.set_page_config(layout="wide", page_title="ABM Categorías de Imputación")
-    abm_categorias()
+    abm_ingresos_egresos()
