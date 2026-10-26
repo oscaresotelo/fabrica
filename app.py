@@ -11,13 +11,12 @@ st.set_page_config(page_title="Minerva", layout="wide")
 # ------------------------------------------------------------
 from login import mostrar_login
 from dashboard import mostrar_dashboard
-#from Proceso_Elaboracion import mostrar_proceso_elaboracion
+from Proceso_Elaboracion import mostrar_proceso_elaboracion  # 👈 Importación del nuevo archivo
 from Compras import mostrar_compras
 from moduloenvasar import gestionenvasar
 from Ventas import ventas
 from Stock_Sin_Envasar import mostrar_stock_sin_envasar
 from saldos_sin_envasar import modulo_saldos_sin_envasar
-from produccion import gestionar_produccion  # 👈 Módulo de producción agregado
 
 # ------------------------------------------------------------
 # IMPORTACIÓN DE MÓDULOS ABM
@@ -61,7 +60,7 @@ with st.sidebar:
     selected = option_menu(
         menu_title="Menú Principal",
         options=[
-            "Dashboard", "Producción", "Proceso Elaboración", "Compras", "Gestionar Envasado",
+            "Dashboard", "Proceso Elaboración", "Compras", "Gestionar Envasado",
             "Stock Sin Envasar", "Ventas", "Reportes", "Consulta de Lote",
             "Administración", "Guía de Usuario", "Salir"
         ],
@@ -97,11 +96,8 @@ st.markdown(
 if selected == "Dashboard":
     mostrar_dashboard()
 
-elif selected == "Producción":
-    gestionar_produccion()  # 👈 Llamada a la función principal de producción
-
-#elif selected == "Proceso Elaboración":
-    #mostrar_proceso_elaboracion()
+elif selected == "Proceso Elaboración":
+    mostrar_proceso_elaboracion()  # 👈 Carga el contenido de Proceso_Elaboracion.py
 
 elif selected == "Compras":
     mostrar_compras()
