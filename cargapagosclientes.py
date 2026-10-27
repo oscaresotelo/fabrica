@@ -1,10 +1,12 @@
+# cargapagosclientes.py
+
 import streamlit as st
 import sqlite3
 from datetime import date
 import pandas as pd
 
-# Configuración inicial de la página
-st.set_page_config(page_title="Gestión de Pagos e Imputaciones - Minerva", layout="wide")
+# 👈 Importamos el módulo de órdenes de compra adaptado
+from ordenes_compra import mostrar_gestion_ordenes_compra
 
 def inicializar_base_datos(db_path="minerva.db"):
     """Crea la tabla si no existe y asegura que tenga todas las columnas necesarias"""
@@ -49,14 +51,12 @@ def main():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # 1. Cargar lista de revendedores
     try:
         cursor.execute("SELECT id, nombre FROM revendedores ORDER BY nombre ASC")
         revendedores = cursor.fetchall()
     except sqlite3.OperationalError:
         revendedores = []
         
-    # 2. Cargar lista de proveedores
     try:
         cursor.execute("SELECT id, nombre FROM proveedores ORDER BY nombre ASC")
         proveedores = cursor.fetchall()
@@ -68,8 +68,12 @@ def main():
     opciones_revendedores = {r[1]: r[0] for r in revendedores} if revendedores else {"Ejemplo Revendedor": 1}
     opciones_proveedores = {p[1]: p[0] for p in proveedores} if proveedores else {}
 
-    # Creación de Pestañas
-    tab_registro, tab_reportes = st.tabs(["📝 Cargar e Imputar Pago", "🔍 Reportes, Trazabilidad y Saldos"])
+    # 🛒 Creación de Pestañas (Incluyendo la nueva solapa de Órdenes de Compra)
+    tab_registro, tab_reportes, tab_oc = st.tabs([
+        "📝 Cargar e Imputar Pago", 
+        "🔍 Reportes, Trazabilidad y Saldos",
+        "🛒 Gestionar Órdenes de Compra"
+    ])
 
     # ==========================================
     # PESTAÑA 1: FORMULARIO DE REGISTRO E IMPUTACIÓN
@@ -106,7 +110,6 @@ def main():
                 nombre_proveedor_sel = st.selectbox("2. Seleccionar Proveedor", list(opciones_proveedores.keys()), key="sel_prov")
                 proveedor_id = opciones_proveedores[nombre_proveedor_sel]
                 
-                # Consultar órdenes de compra del proveedor
                 conn = sqlite3.connect(db_path)
                 try:
                     query_oc = "SELECT id, fecha_orden, estado, observaciones FROM ordenes_de_compra WHERE proveedor_id = ? ORDER BY id DESC"
@@ -187,7 +190,7 @@ def main():
             destino_pago_texto = f"Proveedor: {nombre_prov_str} (OC ID: {oc_str})"
             st.markdown("---")
             
-        observaciones = st.text_area("Observaciones / Notas de Imputación", placeholder="Ej: Pago de revendedor aplicado directamente a orden de compra...", key="obs_pago")
+        observaciones = st.text_area("Observaciones / Notas de Imputación", placeholder="Ej: Pago de revendedor aplicado...", key="obs_pago")
         
         if st.button("💾 Guardar e Imputar Pago", type="primary"):
             if importe <= 0:
@@ -242,8 +245,6 @@ def main():
     # ==========================================
     with tab_reportes:
         st.subheader("📊 Panel de Reportes y Trazabilidad")
-        
-        # Selector de tipo de reporte dentro de la misma pestaña
         tipo_reporte = st.radio(
             "Seleccioná el tipo de reporte que deseás consultar:",
             ["🏢 Auditoría de Cuenta Corriente por Proveedor", "👥 Trazabilidad de Pagos e Ingresos por Revendedor"],
@@ -267,19 +268,14 @@ def main():
                 
                 if not df_oc_rep.empty:
                     reporte_saldos = []
-                    total_deuda_general = 0.0
-                    total_pagado_general = 0.0
-                    total_neto_general = 0.0
+                    total_deuda_general = total_pagado_general = total_neto_general = 0.0
                     
                     for _, row in df_oc_rep.iterrows():
                         oc_id = str(row['id'])
-                        
                         res_t = conn.execute("SELECT SUM(cantidad * precio_unitario) FROM detalle_orden_compra WHERE orden_compra_id = ?", (oc_id,)).fetchone()
                         t_oc = res_t[0] if res_t and res_t[0] else 0.0
-                        
                         res_p = conn.execute("SELECT SUM(importe) FROM pagos_revendedores WHERE orden_compra_id = ?", (oc_id,)).fetchone()
                         p_oc = res_p[0] if res_p and res_p[0] else 0.0
-                        
                         s_oc = t_oc - p_oc
                         
                         total_deuda_general += t_oc
@@ -296,54 +292,18 @@ def main():
                         })
                     
                     df_estado_cta = pd.DataFrame(reporte_saldos)
-                    
                     col_m1, col_m2, col_m3 = st.columns(3)
                     col_m1.metric("Deuda Total Histórica", f"${total_deuda_general:,.2f}")
                     col_m2.metric("Total Abonado con Revendedores", f"${total_pagado_general:,.2f}")
                     col_m3.metric("Saldo Neto Adeudado Actual", f"${total_neto_general:,.2f}", delta_color="inverse")
                     
-                    st.markdown(f"**Desglose por Orden de Compra - {prov_reporte_nombre}**")
                     st.dataframe(df_estado_cta, use_container_width=True)
-                    
-                    st.markdown("---")
-                    st.markdown(f"**Historial de Imputaciones aplicadas a {prov_reporte_nombre}**")
-                    query_pagos_prov = """
-                        SELECT 
-                            p.id AS 'ID Pago',
-                            r.nombre AS 'Revendedor que Aportó',
-                            p.fecha_pago AS 'Fecha Pago',
-                            p.numero_pedido AS 'Nº Pedido Revendedor',
-                            p.importe AS 'Importe Imputado ($)',
-                            p.orden_compra_id AS 'ID Orden Compra',
-                            p.observaciones AS 'Observaciones'
-                        FROM pagos_revendedores p
-                        JOIN revendedores r ON p.revendedor_id = r.id
-                        WHERE p.proveedor_id = ?
-                        ORDER BY p.fecha_pago DESC
-                    """
-                    df_hist_pagos = pd.read_sql(query_pagos_prov, conn, params=(prov_reporte_id,))
-                    
-                    if not df_hist_pagos.empty:
-                        st.dataframe(df_hist_pagos, use_container_width=True)
-                        csv_cc = df_hist_pagos.to_csv(index=False).encode('utf-8')
-                        st.download_button(
-                            label=f"📥 Descargar Cuenta Corriente de {prov_reporte_nombre}",
-                            data=csv_cc,
-                            file_name=f"cuenta_corriente_{prov_reporte_nombre}.csv",
-                            mime="text/csv"
-                        )
-                    else:
-                        st.info(f"No hay pagos de revendedores imputados a este proveedor todavía.")
                 else:
-                    st.warning(f"El proveedor {prov_reporte_nombre} no tiene órdenes de compra registradas.")
-                
+                    st.warning(f"El proveedor {prov_reporte_nombre} no tiene órdenes de compra.")
                 conn.close()
             else:
-                st.warning("No hay proveedores registrados en la base de datos.")
-                
+                st.warning("No hay proveedores registrados.")
         else:
-            st.markdown("##### 👥 Ingresos de Dinero y Destino por Revendedor")
-            
             col_f1, col_f2, col_f3 = st.columns(3)
             with col_f1:
                 opciones_filtro_rev = ["Todos los Revendedores"] + list(opciones_revendedores.keys())
@@ -354,46 +314,32 @@ def main():
                 fecha_hasta = st.date_input("Fecha Hasta", value=date.today(), key="f_hasta")
 
             query_base = """
-                SELECT 
-                    p.id AS 'ID Pago',
-                    r.nombre AS 'Revendedor',
-                    p.fecha_pago AS 'Fecha de Pago',
-                    p.numero_pedido AS 'Nº Pedido / Comprobante',
-                    p.importe AS 'Dinero Ingresado ($)',
-                    p.destino_pago AS 'Destino / Imputación (A dónde fue)',
-                    p.observaciones AS 'Observaciones'
-                FROM pagos_revendedores p
-                JOIN revendedores r ON p.revendedor_id = r.id
+                SELECT p.id AS 'ID Pago', r.nombre AS 'Revendedor', p.fecha_pago AS 'Fecha de Pago', p.numero_pedido AS 'Nº Pedido', p.importe AS 'Dinero Ingresado ($)', p.destino_pago AS 'Destino', p.observaciones
+                FROM pagos_revendedores p JOIN revendedores r ON p.revendedor_id = r.id
                 WHERE p.fecha_pago BETWEEN ? AND ?
             """
             params = [fecha_desde, fecha_hasta]
-
             if revendedor_seleccionado != "Todos los Revendedores":
                 query_base += " AND r.id = ?"
                 params.append(opciones_revendedores[revendedor_seleccionado])
-
             query_base += " ORDER BY p.fecha_pago DESC"
 
             conn = sqlite3.connect(db_path)
             df_ingresos = pd.read_sql(query_base, conn, params=params)
             conn.close()
 
-            st.divider()
-
             if not df_ingresos.empty:
-                total_ingresado = df_ingresos['Dinero Ingresado ($)'].sum()
-                st.metric(label=f"Total Dinero Ingresado ({revendedor_seleccionado})", value=f"${total_ingresado:,.2f}")
+                st.metric(label=f"Total Ingresado ({revendedor_seleccionado})", value=f"${df_ingresos['Dinero Ingresado ($)'].sum():,.2f}")
                 st.dataframe(df_ingresos, use_container_width=True)
-                
-                csv_ing = df_ingresos.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Descargar Reporte de Ingresos en CSV",
-                    data=csv_ing,
-                    file_name=f"ingresos_revendedores_{fecha_desde}_al_{fecha_hasta}.csv",
-                    mime="text/csv"
-                )
             else:
-                st.warning("No se encontraron registros de pagos para los filtros seleccionados.")
+                st.warning("No se encontraron registros de pagos.")
+
+    # ==========================================
+    # PESTAÑA 3: GESTIÓN DE ÓRDENES DE COMPRA (INTEGRADA)
+    # ==========================================
+    with tab_oc:
+        # Llamada directa al módulo importado
+        mostrar_gestion_ordenes_compra()
 
 if __name__ == "__main__":
     main()
